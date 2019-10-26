@@ -96,17 +96,19 @@ float ypr[3];           // [yaw, pitch, roll]   yaw/pitch/roll container and gra
 uint8_t teapotPacket[14] = { '$', 0x02, 0,0, 0,0, 0,0, 0,0, 0x00, 0x00, '\r', '\n' };
 
 
-// L293e
-int pinInput1 = 6; // D6
-int pinInput2 = 7; // D7
-int pinPower = 5;  // D5
+// L293e Driver Config
+#define LMOTOR_F 3        // D3
+#define LMOTOR_R 4        // D4
+#define LMOTOR_E 9        // D9, PWM for Chip Enable #1
+#define RMOTOR_F 5        // D5
+#define RMOTOR_R 6        // D6
+#define RMOTOR_E 10       // D10, PWM for Chip Enable #2
 
-#define LMOTOR_F 3        // D#
-#define LMOTOR_R 4        // D#
-#define LMOTOR_E 9        // D#, PWM for Chip Enable #
-#define RMOTOR_F 5        // D#
-#define RMOTOR_R 6        // D#
-#define RMOTOR_E 10        // D#, PWM for Chip Enable #
+// Gyro Offsets
+#define GYRO_X_OFFSET   109
+#define GYRO_Y_OFFSET   33
+#define GYRO_Z_OFFSET   50
+#define ACCEL_Z_OFFSET  1788
 
 
 
@@ -128,10 +130,6 @@ void dmpDataReady() {
 void setup() {
 
     // L293e
-    pinMode( pinInput1, OUTPUT );
-    pinMode( pinInput2, OUTPUT );
-    pinMode( pinPower, OUTPUT );
-
     pinMode(LMOTOR_F, OUTPUT);
     pinMode(LMOTOR_R, OUTPUT);
     pinMode(LMOTOR_E, OUTPUT);
@@ -174,11 +172,10 @@ void setup() {
     Serial.println(F("Initializing DMP..."));
     devStatus = mpu.dmpInitialize();
 
-    // supply your own gyro offsets here, scaled for min sensitivity
-    mpu.setXGyroOffset(109);
-    mpu.setYGyroOffset(33);
-    mpu.setZGyroOffset(50);
-    mpu.setZAccelOffset(1788); // 1688 factory default for my test chip
+    mpu.setXGyroOffset(GYRO_X_OFFSET);
+    mpu.setYGyroOffset(GYRO_Y_OFFSET);
+    mpu.setZGyroOffset(GYRO_Z_OFFSET);
+    mpu.setZAccelOffset(ACCEL_Z_OFFSET); 
 
     // make sure it worked (returns 0 if so)
     if (devStatus == 0) {
@@ -233,16 +230,8 @@ void loop() {
           // try to get out of the infinite loop 
           fifoCount = mpu.getFIFOCount();
         }  
+        
         // other program behavior stuff here
-        // .
-        // .
-        // .
-        // if you are really paranoid you can frequently test in between other
-        // stuff to see if mpuInterrupt is true, and if so, "break;" from the
-        // while() loop to immediately process the MPU data
-        // .
-        // .
-        // .
     }
 
     // reset interrupt flag and get INT_STATUS byte
@@ -251,10 +240,11 @@ void loop() {
 
     // get current FIFO count
     fifoCount = mpu.getFIFOCount();
-	if(fifoCount < packetSize){
-	        //Lets go back and wait for another interrupt. We shouldn't be here, we got an interrupt from another event
-			// This is blocking so don't do it   while (fifoCount < packetSize) fifoCount = mpu.getFIFOCount();
-	}
+  	if(fifoCount < packetSize){
+  	        //Lets go back and wait for another interrupt. We shouldn't be here, we got an interrupt from another event
+  			// This is blocking so don't do it   while (fifoCount < packetSize) fifoCount = mpu.getFIFOCount();
+  	}
+   
     // check for overflow (this should never happen unless our code is too inefficient)
     else if ((mpuIntStatus & _BV(MPU6050_INTERRUPT_FIFO_OFLOW_BIT)) || fifoCount >= 1024) {
         // reset so we can continue cleanly
@@ -266,12 +256,15 @@ void loop() {
     } else if (mpuIntStatus & _BV(MPU6050_INTERRUPT_DMP_INT_BIT)) {
 
         // read a packet from FIFO
-	while(fifoCount >= packetSize){ // Lets catch up to NOW, someone is using the dreaded delay()!
-		mpu.getFIFOBytes(fifoBuffer, packetSize);
-		// track FIFO count here in case there is > 1 packet available
-		// (this lets us immediately read more without waiting for an interrupt)
-		fifoCount -= packetSize;
-	}
+      	while(fifoCount >= packetSize) { // Lets catch up to NOW, someone is using the dreaded delay()!
+      		mpu.getFIFOBytes(fifoBuffer, packetSize);
+      		// track FIFO count here in case there is > 1 packet available
+      		// (this lets us immediately read more without waiting for an interrupt)
+      		fifoCount -= packetSize;
+      	}
+
+       drive(ypr[1] * 180/M_PI);
+       
         #ifdef OUTPUT_READABLE_QUATERNION
             // display quaternion values in easy matrix form: w x y z
             mpu.dmpGetQuaternion(&q, fifoBuffer);
@@ -308,7 +301,6 @@ void loop() {
             //Serial.print(ypr[1] * 180/M_PI);
             //Serial.print("\t");
             //Serial.println(ypr[2] * 180/M_PI);
-            drive(ypr[1] * 180/M_PI);
         #endif
 
         #ifdef OUTPUT_READABLE_REALACCEL
@@ -395,10 +387,6 @@ int powerCalc(float pitch) {
 
 
 void driveForward(int power) {
-    //digitalWrite( pinInput1, LOW );
-    //digitalWrite( pinInput2, HIGH );
-    //analogWrite( pinPower, power );
-
     
     digitalWrite(LMOTOR_F, HIGH);
     digitalWrite(LMOTOR_R, LOW);
@@ -411,11 +399,7 @@ void driveForward(int power) {
 }
 
 void driveReverse(int power) {
-    //digitalWrite( pinInput1, HIGH );
-    //digitalWrite( pinInput2, LOW );
-    //analogWrite( pinPower, power );
 
-    
     digitalWrite(LMOTOR_F, LOW);
     digitalWrite(LMOTOR_R, HIGH);
     digitalWrite(LMOTOR_E, power);
@@ -427,10 +411,6 @@ void driveReverse(int power) {
 }
 
 void halt() {
-    //digitalWrite( pinInput1, HIGH );
-    //digitalWrite( pinInput2, HIGH );
-    //analogWrite( pinPower, 0 );
-
     
     digitalWrite(LMOTOR_F, HIGH);
     digitalWrite(LMOTOR_R, HIGH);
