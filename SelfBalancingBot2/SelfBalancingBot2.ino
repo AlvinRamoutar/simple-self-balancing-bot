@@ -99,13 +99,11 @@ float correct = 0.0f;
 uint8_t teapotPacket[14] = { '$', 0x02, 0,0, 0,0, 0,0, 0,0, 0x00, 0x00, '\r', '\n' };
 
 
-// L293e Driver Config
-#define LMOTOR_F 3        // D3
-#define LMOTOR_R 4        // D4
-#define LMOTOR_E 9        // D9, PWM for Chip Enable #1
-#define RMOTOR_F 5        // D5
-#define RMOTOR_R 6        // D6
-#define RMOTOR_E 10       // D10, PWM for Chip Enable #2
+// L298 Motor Shield Config
+#define LMOTOR 4 
+#define LMOTOR_PWM 5 
+#define RMOTOR 7       
+#define RMOTOR_PWM 6        
 
 // Gyro Offsets
 #define GYRO_X_OFFSET   -8
@@ -134,13 +132,11 @@ void dmpDataReady() {
 
 void setup() {
 
-    // L293e
-    pinMode(LMOTOR_F, OUTPUT);
-    pinMode(LMOTOR_R, OUTPUT);
-    pinMode(LMOTOR_E, OUTPUT);
-    pinMode(RMOTOR_F, OUTPUT);
-    pinMode(RMOTOR_R, OUTPUT);
-    pinMode(RMOTOR_E, OUTPUT);
+    // Motor Shield
+    pinMode(LMOTOR, OUTPUT);
+    pinMode(LMOTOR_PWM, OUTPUT);
+    pinMode(RMOTOR, OUTPUT);
+    pinMode(RMOTOR_PWM, OUTPUT);
   
     // join I2C bus (I2Cdev library doesn't do this automatically)
     #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
@@ -451,42 +447,28 @@ int powerCalc(float pitch) {
 
 
 void driveForward(int power) {
+    digitalWrite(LMOTOR, HIGH);
+    digitalWrite(LMOTOR_PWM, power);
     
-    digitalWrite(LMOTOR_F, HIGH);
-    digitalWrite(LMOTOR_R, LOW);
-    digitalWrite(LMOTOR_E, power);
-    
-    digitalWrite(RMOTOR_F, HIGH);
-    digitalWrite(RMOTOR_R, LOW);
-    digitalWrite(RMOTOR_E, power);
-    
+    digitalWrite(RMOTOR, LOW);
+    digitalWrite(RMOTOR_PWM, power);
 }
 
 
 void driveReverse(int power) {
-
-    digitalWrite(LMOTOR_F, LOW);
-    digitalWrite(LMOTOR_R, HIGH);
-    digitalWrite(LMOTOR_E, power);
+    digitalWrite(LMOTOR, LOW);
+    digitalWrite(LMOTOR_PWM, power);
     
-    digitalWrite(RMOTOR_F, LOW);
-    digitalWrite(RMOTOR_R, HIGH);
-    digitalWrite(RMOTOR_E, power);
-    
+    digitalWrite(RMOTOR, HIGH);
+    digitalWrite(RMOTOR_PWM, power);
 }
 
 /**
  * Motor halt via enable low on both EN1 & EN2
  */
 void halt() {
-    
-    digitalWrite(LMOTOR_F, HIGH);
-    digitalWrite(LMOTOR_R, HIGH);
-    digitalWrite(LMOTOR_E, 0);
-    
-    digitalWrite(RMOTOR_F, HIGH);
-    digitalWrite(RMOTOR_R, HIGH);
-    digitalWrite(RMOTOR_E, 0);
-    
+    digitalWrite(LMOTOR, 0);
+    digitalWrite(RMOTOR, 0);
 }
+
 
